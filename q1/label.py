@@ -1,4 +1,5 @@
 import pandas as pd
+from datetime import datetime, timedelta
 
 # 读取CSV文件或创建DataFrame
 df = pd.read_csv('../data/表2-患者影像信息血肿及水肿的体积及位置.csv')
@@ -59,7 +60,12 @@ for col in hm_columns_reversed:
                     time = time_df.iloc[row_index, time_column_index-1]
             else:
                 print(f"未找到目标值{row_index} {previous_column}")
-            selected_df.loc[index, 'hm_big_time'] = time
+            # 计算时间差值
+            dead_time = time_df.loc[row_index, '入院首次检查时间点']
+            time_difference = datetime.strptime(time, '%Y/%m/%d %H:%M') - datetime.strptime(dead_time, '%Y/%m/%d %H:%M')
+            # 比较时间差值是否大于48小时
+            if time_difference <= timedelta(hours=48):
+                selected_df.loc[index, 'hm_big_time'] = time
 
 # 将结果存储在新列中
 result = selected_df[['hm_big', 'hm_big_time']]
