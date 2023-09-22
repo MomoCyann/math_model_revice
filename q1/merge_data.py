@@ -4,4 +4,11 @@
 # 及“表3”其影像检查结果（字段C至AG，注：只可包含对应患者首次影像检查记录）等变量，
 # 构建模型预测所有患者（sub001至sub160）发生血肿扩张的概率。
 
+import pandas as pd
 
+half_merge = pd.read_csv('half_merge.csv')
+
+
+
+
+print(1)

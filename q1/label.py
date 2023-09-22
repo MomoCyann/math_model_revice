@@ -2,6 +2,7 @@ import pandas as pd
 from datetime import datetime, timedelta
 
 # 读取CSV文件或创建DataFrame
+table1 = pd.read_csv('../data/表1-患者列表及临床信息.csv')
 df = pd.read_csv('../data/表2-患者影像信息血肿及水肿的体积及位置.csv')
 time_df = pd.read_csv('../data/time.csv', index_col=False)
 
@@ -62,11 +63,13 @@ for col in hm_columns_reversed:
                 print(f"未找到目标值{row_index} {previous_column}")
             # 计算时间差值
             dead_time = time_df.loc[row_index, '入院首次检查时间点']
+            ill_time = table1.loc[row_index, '发病到首次影像检查时间间隔']
+            print(timedelta(hours=48)-timedelta(hours=ill_time))
             time_difference = datetime.strptime(time, '%Y/%m/%d %H:%M') - datetime.strptime(dead_time, '%Y/%m/%d %H:%M')
             # 比较时间差值是否大于48小时
-            if time_difference <= timedelta(hours=48):
+            if time_difference <= timedelta(hours=48)-timedelta(hours=ill_time):
                 selected_df.loc[index, 'hm_big_time'] = time
 
 # 将结果存储在新列中
 result = selected_df[['hm_big', 'hm_big_time']]
-result.to_csv('result2.csv', encoding='utf-8_sig')
+result.to_csv('result3.csv', encoding='utf-8_sig')
