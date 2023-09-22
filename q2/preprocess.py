@@ -4,50 +4,57 @@ import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 from sklearn.cluster import KMeans
+from datetime import datetime,timedelta
 
 
-df = pd.read_csv("data/水肿体积时序.csv")
-df_time = pd.read_csv("data/origin/time.csv")
+def get_ed_time():
+    df = pd.read_csv("data/origin/表2-患者影像信息血肿及水肿的体积及位置.csv",index_col=False)
+    df_time = pd.read_csv("data/origin/time.csv")
 
-print(df.head())
-print(df.info())
+    cols = []
+    for c in df.columns:
+        if c.find('时间') != -1 or c.find('ED_volume') != -1:
+            cols.append(c)
+    df = df[cols]
+    print(cols)
 
-cols = []
-
-# 获取流水号字段
-for c in df.columns:
-    if c.find("流水号") != -1:
-        cols.append(c)
-        # df[c]=df[c].astype(float).astype(int)
-
-
-print(cols)
-
-for index in df.index:
-    for col in cols:
-
-        # 获取流水号
-        num = df.loc[index,col]
-        # 获取时间字段
-        time_col = col.replace('流水号','时间点')
-        # 获取对应时间
-        time = df_time.loc[df_time[col] == num, time_col]
-        # df.loc[index,time_col]=time
-
-        # 查找它所在的行
-        target_row = df_time[df_time.eq(num).any(axis=1)]
-        # 如果找到目标行，获取该行的索引
-        if not target_row.empty:
-            row_index = target_row.index[0]
-            time_column_index = df_time.columns.get_loc(col)
-            # 获取同一行的前一列的值
-            if row_index >= 0:
-                time = df_time.iloc[row_index, time_column_index - 1]
-                print(time)
-        else:
-            print(f"未找到目标值{row_index} {col}")
+    for index in df.index:
+        first_check = datetime.strptime(df.loc[index, '入院首次检查时间点'], '%Y/%m/%d %H:%M')
+        first_time = df.loc[index,'发病到首次影像检查时间间隔']
+        for c in df.columns:
+            if c.find('随访') != -1:
 
 
+                time = df.loc[index,c]
 
-print(df.head())
+
+                if pd.isnull(time):
+                    continue
+                time_difference = datetime.strptime(time, '%Y/%m/%d %H:%M') - first_check
+                sec = time_difference.total_seconds()
+                df.loc[index,c]=round(sec/3600+first_time,2)
+    df.iloc[:,1]= df.iloc[:,0]
+    df.iloc[:,0]=0
+    print(df.head())
+
+    df.to_csv("data/ed_volume_time.csv",encoding='utf-8_sig')
+
+def get_train_data():
+    df = pd.read_csv("data/ed_volume_time.csv",index_col=False)
+    df = df.loc[:,~df.columns.str.contains('Unnamed')]
+
+    print(df.info())
+
+    X = df.loc[:,df.columns.str.contains('时间点')]
+    Y = df.loc[:,df.columns.str.contains('volume')]
+
+    print(X)
+    print(Y)
+
+    for index in X.index[:50]:
+        plt.scatter(X.loc[index,:],Y.loc[index,:])
+        plt.plot(X.loc[index,:],Y.loc[index,:])
+    plt.show()
+
+get_train_data()
 
