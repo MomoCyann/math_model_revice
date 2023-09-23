@@ -77,7 +77,10 @@ def multi_fit(x,y):
 
 def km():
     df_person = pd.read_csv("D:\Program Files (x86)\PyProject\math_model_revice\data\表1-患者列表及临床信息.csv")
+    # 删除sub81异常数据
+    df_person.drop(index=80, inplace=True,axis=0)
     df_person = df_person.loc[:160,~df_person.columns.str.contains('Unnamed')]
+
     data = df_person.iloc[:,3:]
     print(df_person.tail())
     print(df_person.info())
@@ -90,8 +93,8 @@ def km():
 
     for cluster in range(3,6):
 
-        # model = KMeans(n_clusters=cluster)
-        model = kmodes.KModes(n_clusters=cluster)
+        model = KMeans(n_clusters=cluster)
+        # model = kmodes.KModes(n_clusters=cluster)
         predict = model.fit_predict(data)
 
         label = "label_"+str(cluster)
@@ -102,13 +105,12 @@ def km():
         print(df_person.groupby(label).mean()['90天mRS'])
         print(df_person.groupby(label).count()['90天mRS'])
 
-    df.to_csv("data/ed_kmodes.csv",encoding='utf-8_sig')
+    df.to_csv("data/ed_km_no81.csv",encoding='utf-8_sig')
 
 
 def get_all_volume(df):
     X = df.loc[:, df.columns.str.contains('时间点')]
     Y = df.loc[:, df.columns.str.contains('volume')]
-
 
     df_f = pd.DataFrame(columns=['time','volume'])
 
@@ -125,7 +127,6 @@ def get_all_volume(df):
     df_f.sort_values('time',inplace=True)
     df_f.reset_index(drop=True,inplace=True)
 
-    print(df_f)
     return df_f
 
 
@@ -172,22 +173,27 @@ def plot_box(df):
     print(",".join(map(str,round(avg_volume,4))))
     print('\n\n')
 
-
-# df = pd.read_csv("data/allVolume.csv", index_col=False)
-# df = df.loc[:, ~df.columns.str.contains('Unnamed')]
 #
-# print(df.shape)
-#
-# plot_box(df)
+df = pd.read_csv("data/allVolume.csv", index_col=False)
+df = df.loc[:, ~df.columns.str.contains('Unnamed')]
 
+plot_box(df)
 
-df = pd.read_csv("data/ed_km.csv")
+# df = pd.read_csv('data/ed_volume_time.csv')
+# df = df.loc[:98,:]
+# volume= get_all_volume(df)
+# volume.to_csv('data/allVolume_no81.csv',encoding='utf-8_sig')
+
+# km()
+
+# 分聚类画图并输出箱信息
+df = pd.read_csv("data/ed_km_no81.csv")
 df = df.loc[:, ~df.columns.str.contains('Unnamed')]
 
 # df_all = pd.read_csv("data/allVolume.csv")
 # plot_box(df_all)
 
-cluster = 5
+cluster =3
 label = "label_"+str(cluster)
 for i in range(cluster):
 
@@ -195,6 +201,6 @@ for i in range(cluster):
 
     df_label = get_all_volume(df_tmp)
 
-    print(df_label.info())
+    # print(df_label.info())
 
     plot_box(df_label)
