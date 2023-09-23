@@ -35,7 +35,7 @@ condition2 = selected_df[[f'percent_change_{col}' for col in hm_columns[1:]]].gt
 final_condition = condition1 | condition2
 
 # 创建一个新列来表示是否满足条件
-selected_df['hm_big'] = final_condition.astype(int)
+selected_df['hm_big'] = 0
 
 selected_df['hm_big_time'] = ''
 hm_columns_reversed = hm_columns[::-1][:-1]
@@ -69,6 +69,8 @@ for col in hm_columns_reversed:
             # 比较时间差值是否大于48小时
             if time_difference <= timedelta(hours=48)-timedelta(hours=ill_time):
                 selected_df.loc[index, 'hm_big_time'] = time
+                selected_df.loc[index, 'hm_big'] = 1
+
 
 # 将结果存储在新列中
 result = selected_df[['hm_big', 'hm_big_time']]

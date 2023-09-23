@@ -20,7 +20,7 @@ df2.rename(columns={column: f"{column}_hm" for column in columns_to_rename}, inp
 print(1)
 df2 = df2.drop("备注", axis=1)
 merged_df = df1.join(df2.set_index("流水号"), on="流水号")
-merged_df.to_csv("../data/表3.csv", index=False, encoding='')
+merged_df.to_csv("../data/表3.csv", index=False, encoding='utf-8_sig')
 
 
 
