@@ -7,7 +7,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn import svm
 from xgboost import XGBRegressor
 from xgboost import XGBClassifier
-from imblearn.over_sampling import SMOTE
+from imblearn.over_sampling import SMOTE, KMeansSMOTE
 from sklearn.preprocessing import StandardScaler, MinMaxScaler, label_binarize
 import numpy as np
 from sklearn.model_selection import train_test_split
@@ -28,7 +28,7 @@ from sklearn.neighbors import KNeighborsClassifier
 
 from sklearn.metrics import accuracy_score, f1_score, roc_auc_score
 from sklearn.ensemble import AdaBoostClassifier
-from imblearn.ensemble import RUSBoostClassifier
+# from imblearn.ensemble import RUSBoostClassifier
 from sklearn.tree import DecisionTreeClassifier
 
 def get_eval_indicator(y_test, y_pre):
@@ -60,6 +60,7 @@ def get_eval_indicator_clf(y_test, y_pre):
     try:
         auc = roc_auc_score(y_test, y_pre, average='weighted', multi_class='ovr')
     except ValueError:
+        auc=0
         pass
     return acc, f1, auc
 
@@ -243,7 +244,7 @@ def train_data_model(X, Y, X_test, models: List):
     # rusboost = RUSBoostClassifier(base_estimator=tree, n_estimators=50, learning_rate=1.0)
     # adaboost = AdaBoostClassifier(base_estimator=tree, n_estimators=50, learning_rate=1.0)
 
-    all_models=[KNeighborsClassifier(),MLPClassifier(),SVC(probability=True),RandomForestClassifier(n_estimators=300),XGBClassifier(n_estimators=300)]
+    all_models=[KNeighborsClassifier(),MLPClassifier(),SVC(probability=True, decision_function_shape='ovo'),RandomForestClassifier(n_estimators=300),XGBClassifier(n_estimators=300)]
     all_models_name = ['KNN', 'MLP', 'SVM', 'RF', 'XGBoost',]  # 模型名字，方便画图
 
 
@@ -314,7 +315,7 @@ def train_data_model(X, Y, X_test, models: List):
 
     if len(models) == 1:
         final_proba = np.mean(np.array(y_final_proba), axis=0)
-        final_proba = pd.DataFrame(final_proba, columns=['0', '1'])
+        final_proba = pd.DataFrame(final_proba, columns=['0', '1', '2', '3', '4', '5', '6'])
         final_proba.to_csv(f'result_proba_{models[0]}.csv', encoding='utf-8_sig')
         df.groupby('模型').mean().to_csv(f'result_mean_{models[0]}_smote.csv', encoding='utf-8_sig')
     else:
@@ -339,8 +340,8 @@ if __name__ == '__main__':
     Y_train = Y.iloc[:100]
     Y_test = Y.iloc[100:]
 
-    # smo = SMOTE(random_state=42)
-    # X_train, Y_train = smo.fit_resample(X_train, Y_train)
+    smo = SMOTE(random_state=42, k_neighbors=3)
+    X_train, Y_train = smo.fit_resample(X_train, Y_train)
 
 
     scaler = StandardScaler()
@@ -356,5 +357,7 @@ if __name__ == '__main__':
     # 训练并画图
     # train_data(X, Y, X_test)
     train_data_model(X_train, Y_train, X_test, ['RF'])
+    train_data_model(X_train, Y_train, X_test, ['XGBoost'])
+    # train_data_model(X_train, Y_train, X_test, ['SVM'])
 
 

@@ -8,6 +8,7 @@ value_counts_df = data['90天mRS'].value_counts().reset_index()
 
 # 重命名列名
 value_counts_df.columns = ['值', '计数']
+value_counts_df.to_csv('count.csv', encoding='utf-8_sig')
 
 # 绘制柱状图
 plt.bar(value_counts_df['值'], value_counts_df['计数'])
