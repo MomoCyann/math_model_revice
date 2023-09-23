@@ -7,8 +7,10 @@
 import pandas as pd
 
 half_merge = pd.read_csv('half_merge.csv')
+table3 = pd.read_csv('../data/表3.csv')
+table3 = table3.drop('备注', axis=1)
+
+full_merge = half_merge.join(table3.set_index("流水号"), on="流水号")
 
 
-
-
-print(1)
+full_merge.to_csv('full_merge.csv', encoding='utf-8_sig', index=False)
