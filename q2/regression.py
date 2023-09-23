@@ -7,6 +7,12 @@ from sklearn.cluster import KMeans
 from datetime import datetime,timedelta
 from sklearn.linear_model import LinearRegression
 from sklearn.neural_network import MLPRegressor
+from sklearn.cluster import k_means
+from sklearn.preprocessing import MinMaxScaler
+import seaborn as sns
+from sklearn.neural_network import MLPRegressor
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import r2_score
 
 def get_train_data():
     df = pd.read_csv("data/ed_volume_time.csv",index_col=False)
@@ -29,13 +35,160 @@ def get_train_data():
     plt.show()
     return X,Y
 
-X,Y=get_train_data()
+def regression(X,Y):
 
-model = LinearRegression()
-# model = MLPRegressor()
-model.fit(X, Y)
-print(model.coef_)
-print(model.intercept_)
-print(model.score(X, Y))
-print(model.predict(X), Y)
-print("\n\n")
+    models = [LinearRegression(),MLPRegressor(),RandomForestRegressor(n_estimators=100,max_depth=5)]
+
+    testx = np.arange(0,100,1).reshape(-1,1)
+
+    for model in models:
+        # model = MLPRegressor()
+        model.fit(X, Y)
+        # print(model.coef_)
+        # print(model.intercept_)
+        print(model.score(X, Y))
+        # print(model.predict(X), Y)
+        print("\n\n")
+
+        testy = model.predict(testx)
+        plt.plot(testx,testy)
+        plt.show()
+
+def multi_fit(x,y):
+    degree = 3
+    coefficients = np.polyfit(x, y, degree)
+    poly = np.poly1d(coefficients)
+
+    # 生成拟合后的 x 和对应的 y
+    x_fit = np.linspace(x.min(), x.max(), 100)
+    y_fit = poly(x_fit)
+
+    # 创建原始数据的散点图
+    plt.scatter(x, y, label='原始数据', color='blue', marker='o')
+
+    # 创建拟合曲线
+    plt.plot(x_fit, y_fit, label=f'{degree}-次多项式拟合', color='red')
+    plt.show()
+    score= r2_score(y, poly(x))
+    print(score)
+
+
+def km():
+    df_person = pd.read_csv("D:\Program Files (x86)\PyProject\math_model_revice\data\表1-患者列表及临床信息.csv")
+    df_person = df_person.loc[:160,~df_person.columns.str.contains('Unnamed')]
+    data = df_person.iloc[:,3:]
+    print(df_person.tail())
+    print(df_person.info())
+
+    scaler = MinMaxScaler()
+    data = scaler.fit_transform(X=data)
+
+    df = pd.read_csv("data/ed_volume_time.csv")
+    df = df.loc[:, ~df.columns.str.contains('Unnamed')]
+
+    for cluster in range(3,6):
+
+        model = KMeans(n_clusters=cluster)
+        predict = model.fit_predict(data)
+
+        label = "label_"+str(cluster)
+        df[label]=predict
+        df_person[label]=predict
+
+        print(f"cluster{cluster}:")
+        print(df_person.groupby(label).mean()['90天mRS'])
+        print(df_person.groupby(label).count()['90天mRS'])
+
+    df.to_csv("data/ed_km.csv",encoding='utf-8_sig')
+
+
+def get_all_volume(df):
+    X = df.loc[:, df.columns.str.contains('时间点')]
+    Y = df.loc[:, df.columns.str.contains('volume')]
+
+
+    df_f = pd.DataFrame(columns=['time','volume'])
+
+    index =0
+    for i in X.index:
+        for c1,c2 in zip(X.columns,Y.columns):
+            if pd.isnull(X.loc[i,c1]) or pd.isnull(Y.loc[i,c2]):
+                continue
+            df_f.loc[index,"time"] = X.loc[i,c1]
+            df_f.loc[index,"volume"] = Y.loc[i,c2]
+            index+=1
+
+
+    df_f.sort_values('time',inplace=True)
+    df_f.reset_index(drop=True,inplace=True)
+
+    print(df_f)
+    return df_f
+
+
+def plot_box(df):
+    # 设置箱子的数量和边界
+    num_bins = 12  # 你可以根据需要调整箱子的数量
+
+    # 时间等频
+    # bin_edges = pd.cut(df['time'], bins=num_bins, labels=False)
+    bin_edges = pd.cut(df['time'], bins=[0,24,48,100,200,400,600,800,1000,2000,4000,9000], labels=False)
+
+
+    # 样本等频
+    # bin_edges = pd.qcut(df['time'], q=num_bins, labels=False)
+
+    # 将分箱结果添加到DataFrame
+    df['分箱'] = bin_edges
+
+    # 使用Seaborn绘制箱线图
+    plt.figure(figsize=(10, 6))
+    sns.boxplot(x='分箱', y='volume', data=df, palette='Set2')
+
+    # 添加标签和标题
+    plt.xlabel('分箱')
+    plt.ylabel('大小')
+    plt.title('分箱箱线图')
+    bin_centers =df.groupby('分箱')['time'].mean()
+    plt.xticks(range(bin_centers.shape[0]), bin_centers.astype(int))
+
+    # 显示图形
+    plt.show()
+
+    avg_volume = df.groupby('分箱')['volume'].median()
+
+    # 拼接数据
+    times = ""
+    volumes=""
+    for i in range(len(bin_centers)):
+        tmp = str(round(bin_centers[i],4))+","
+        tmp2 = str(round(avg_volume[i],4))+","
+        times+=tmp
+        volumes+=tmp2
+    print("分箱时间及对应的大小输出")
+    print(times)
+    print(volumes)
+    print('\n\n')
+
+# df = pd.read_csv("data/allVolume.csv", index_col=False)
+# df = df.loc[:, ~df.columns.str.contains('Unnamed')]
+#
+# print(df.shape)
+#
+# plot_box(df)
+
+
+df = pd.read_csv("data/ed_km.csv")
+df = df.loc[:, ~df.columns.str.contains('Unnamed')]
+
+cluster = 5
+label = "label_"+str(cluster)
+for i in range(cluster):
+
+    df_tmp = df[df[label]==i]
+
+    df_label = get_all_volume(df_tmp)
+
+    print(df_label.info())
+
+    plot_box(df_label)
