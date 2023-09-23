@@ -1,3 +1,5 @@
 col='随访1时间'
 
-print(col.replace('时间', '流水号'))
+list = [1,3,4]
+
+print(",".join(map(str,list)))

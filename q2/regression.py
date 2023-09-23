@@ -13,6 +13,8 @@ import seaborn as sns
 from sklearn.neural_network import MLPRegressor
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import r2_score
+from kmodes import kmodes
+
 
 def get_train_data():
     df = pd.read_csv("data/ed_volume_time.csv",index_col=False)
@@ -88,7 +90,8 @@ def km():
 
     for cluster in range(3,6):
 
-        model = KMeans(n_clusters=cluster)
+        # model = KMeans(n_clusters=cluster)
+        model = kmodes.KModes(n_clusters=cluster)
         predict = model.fit_predict(data)
 
         label = "label_"+str(cluster)
@@ -99,7 +102,7 @@ def km():
         print(df_person.groupby(label).mean()['90天mRS'])
         print(df_person.groupby(label).count()['90天mRS'])
 
-    df.to_csv("data/ed_km.csv",encoding='utf-8_sig')
+    df.to_csv("data/ed_kmodes.csv",encoding='utf-8_sig')
 
 
 def get_all_volume(df):
@@ -128,47 +131,47 @@ def get_all_volume(df):
 
 def plot_box(df):
     # 设置箱子的数量和边界
-    num_bins = 12  # 你可以根据需要调整箱子的数量
+    num_bins = 11  # 你可以根据需要调整箱子的数量
 
     # 时间等频
     # bin_edges = pd.cut(df['time'], bins=num_bins, labels=False)
-    bin_edges = pd.cut(df['time'], bins=[0,24,48,100,200,400,600,800,1000,2000,4000,9000], labels=False)
+    bin_edges = np.asarray([0,24,48,100,200,400,600,800,1000,2000,4000,10000])
 
 
     # 样本等频
     # bin_edges = pd.qcut(df['time'], q=num_bins, labels=False)
 
     # 将分箱结果添加到DataFrame
-    df['分箱'] = bin_edges
+    df['分箱'] = pd.cut(df['time'], bins=bin_edges, labels=False)
+    box_counts = df['分箱'].value_counts()
 
     # 使用Seaborn绘制箱线图
     plt.figure(figsize=(10, 6))
-    sns.boxplot(x='分箱', y='volume', data=df, palette='Set2')
+    sns.boxplot(x='分箱', y='volume', data=df[df['分箱'].isin(box_counts.index)], palette='Set2')
 
     # 添加标签和标题
     plt.xlabel('分箱')
     plt.ylabel('大小')
     plt.title('分箱箱线图')
-    bin_centers =df.groupby('分箱')['time'].mean()
-    plt.xticks(range(bin_centers.shape[0]), bin_centers.astype(int))
+    bin_centers = bin_edges
+    # bin_centers =df.groupby('分箱')['time'].min()
+    # bin_centers =np.asarray([0,24,48,100,200,400,600,800,1000,2000,4000])
+
+    custom_labels = [f'{bin_edges[i]}-{bin_edges[i + 1]}' for i in range(len(bin_edges) - 1)]
+    plt.xticks(range(len(custom_labels)), custom_labels)
+    # plt.xticks(range(bin_centers.shape[0]), bin_centers.astype(int))
 
     # 显示图形
     plt.show()
 
     avg_volume = df.groupby('分箱')['volume'].median()
+    avg_times = df.groupby('分箱')['time'].mean()
 
-    # 拼接数据
-    times = ""
-    volumes=""
-    for i in range(len(bin_centers)):
-        tmp = str(round(bin_centers[i],4))+","
-        tmp2 = str(round(avg_volume[i],4))+","
-        times+=tmp
-        volumes+=tmp2
     print("分箱时间及对应的大小输出")
-    print(times)
-    print(volumes)
+    print(",".join(map(str,round(avg_times,4))))
+    print(",".join(map(str,round(avg_volume,4))))
     print('\n\n')
+
 
 # df = pd.read_csv("data/allVolume.csv", index_col=False)
 # df = df.loc[:, ~df.columns.str.contains('Unnamed')]
@@ -180,6 +183,9 @@ def plot_box(df):
 
 df = pd.read_csv("data/ed_km.csv")
 df = df.loc[:, ~df.columns.str.contains('Unnamed')]
+
+# df_all = pd.read_csv("data/allVolume.csv")
+# plot_box(df_all)
 
 cluster = 5
 label = "label_"+str(cluster)
