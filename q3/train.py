@@ -30,26 +30,13 @@ from sklearn.svm import SVC
 from sklearn.neighbors import KNeighborsRegressor
 from sklearn.neighbors import KNeighborsClassifier
 
-from sklearn.metrics import accuracy_score, f1_score, roc_auc_score
+from sklearn.metrics import accuracy_score, f1_score, roc_auc_score, precision_score, recall_score
 from sklearn.ensemble import AdaBoostClassifier
 # from imblearn.ensemble import RUSBoostClassifier
 from sklearn.tree import DecisionTreeClassifier
 from mord import LogisticAT
 from regression import every_class_acc
 
-
-def get_eval_indicator(y_test, y_pre):
-    '''
-    :param y_test: 真实值
-    :param y_pre: 预测值（模型预测出来的)
-    :return: 4种评价指标
-    返回回归任务的4种评价指标
-    '''
-    mae = mean_absolute_error(y_test, y_pre)
-    mse = mean_squared_error(y_test, y_pre)
-    rmse = np.sqrt(mean_squared_error(y_test, y_pre))
-    r2 = r2_score(y_test, y_pre)
-    return mae, mse, rmse, r2
 
 def get_eval_indicator_clf(y_test, y_pre):
     '''
@@ -59,17 +46,17 @@ def get_eval_indicator_clf(y_test, y_pre):
     返回回归任务的4种评价指标
     '''
     acc = accuracy_score(y_test, y_pre)
+    precision = precision_score(y_test, y_pre, average='weighted')
+    recall = recall_score(y_test, y_pre, average='weighted')
     f1 = f1_score(y_test, y_pre, average='weighted')
 
     labels = [0, 1, 2, 3, 4, 5, 6]
     y_test = label_binarize(y_test, classes=labels)
     y_pre = label_binarize(y_pre, classes=labels)
-    try:
-        auc = roc_auc_score(y_test, y_pre, average='weighted', multi_class='ovr')
-    except ValueError:
-        auc=0
-        pass
-    return acc, f1, auc
+
+    auc = roc_auc_score(y_test, y_pre, average='weighted', multi_class='ovr')
+
+    return acc, precision, recall, f1, auc
 
 def train_data(X, Y, X_test):
     print(X.shape)
@@ -147,7 +134,7 @@ def train_data(X, Y, X_test):
 
             # 获取训练集评价指标
             y_pre_tr = model.predict(x_train)
-            acc, f1, auc = get_eval_indicator_clf(y_train, y_pre_tr)
+            acc, precision, recall, f1, auc = get_eval_indicator_clf(y_train, y_pre_tr)
 
             # df.loc[df_index, '模型'] = model_name
             # df.loc[df_index, 'MAE_t'] = mae
@@ -205,7 +192,7 @@ def train_data(X, Y, X_test):
         print(f"类别 {class_label} 的平均准确率: {avg_accuracy:.2f}")
     print(1)
 
-    # df.groupby('模型').mean().to_csv('result_mean.csv', encoding='utf-8_sig')
+    # df.groupby('模型').mean().to_csv('result_mean_nosmo.csv', encoding='utf-8_sig')
     #
     final_proba = pd.DataFrame(final_proba, columns=['0', '1'])
     # final_proba.to_csv('result_proba.csv', encoding='utf-8_sig')
@@ -244,7 +231,7 @@ def train_data_model(X, Y, X_test, models: List):
     # adaboost = AdaBoostClassifier(base_estimator=tree, n_estimators=50, learning_rate=1.0)
 
     all_models=[KNeighborsClassifier(),MLPClassifier(),SVC(probability=True, decision_function_shape='ovo'),
-                RandomForestClassifier(n_estimators=300, max_depth=5),
+                RandomForestClassifier(n_estimators=100),
                 XGBClassifier(n_estimators=100, max_depth=3,),
                 LogisticAT()]
     all_models_name = ['KNN', 'MLP', 'SVM', 'RF', 'XGBoost','LogisticAT']  # 模型名字，方便画图
@@ -314,7 +301,7 @@ def train_data_model(X, Y, X_test, models: List):
 
             # 获取训练集评价指标
             y_pre_tr = model.predict(x_train)
-            acc, f1, auc = get_eval_indicator_clf(y_train, y_pre_tr)
+            acc, precision, recall, f1, auc = get_eval_indicator_clf(y_train, y_pre_tr)
 
             df.loc[df_index, '模型'] = model_name
             df.loc[df_index, 'acc_t'] = acc
@@ -322,18 +309,20 @@ def train_data_model(X, Y, X_test, models: List):
             df.loc[df_index, 'auc_T'] = auc
             print(f"train acc: {acc}")
             print(f"train f1: {f1}")
-            # print(f"train auc: {auc}")
+            print(f"train auc: {auc}")
 
             # 获取测试集的评价指标
             y_pre = model.predict(x_test)
-            acc, f1, auc = get_eval_indicator_clf(y_test, y_pre)
+            acc, precision, recall, f1, auc = get_eval_indicator_clf(y_test, y_pre)
 
             df.loc[df_index, 'acc'] = acc
+            df.loc[df_index, 'precision'] = precision
+            df.loc[df_index, 'recall'] = recall
             df.loc[df_index, 'f1'] = f1
             df.loc[df_index, 'auc'] = auc
             print(f"test acc: {acc}")
             print(f"test f1: {f1}")
-            # print(f"test auc: {auc}")
+            print(f"test auc: {auc}")
             model_index += 1
             df_index += 1
 
@@ -366,7 +355,7 @@ def train_data_model(X, Y, X_test, models: List):
         final_proba.to_csv(f'result_proba_{models[0]}.csv', encoding='utf-8_sig')
         df.groupby('模型').mean().to_csv(f'result_mean_{models[0]}_smote.csv', encoding='utf-8_sig')
     else:
-        df.groupby('模型').mean().to_csv('result_mean.csv', encoding='utf-8_sig')
+        df.groupby('模型').mean().to_csv('result_mean_nosmo.csv', encoding='utf-8_sig')
     print(1)
 
 
@@ -387,7 +376,7 @@ if __name__ == '__main__':
     X = pd.DataFrame(scaler.fit_transform(X))
 
     # 创建PCA模型并指定要降到的维度
-    pca = PCA(n_components=0.95)
+    pca = PCA(n_components='mle')
     X_pca = pca.fit_transform(X)
 
     X_train = X.iloc[:100, :]
@@ -395,9 +384,10 @@ if __name__ == '__main__':
     Y_train = Y.iloc[:100]
     Y_test = Y.iloc[100:]
 
+    train_data_model(X_train, Y_train, X_test, ['RF', 'MLP', 'XGBoost', 'SVM', 'LogisticAT'])
     # train_data_model(X_train, Y_train, X_test, ['RF'])
     # train_data_model(X_train, Y_train, X_test, ['MLP'])
     # train_data_model(X_train, Y_train, X_test, ['XGBoost'])
-    train_data_model(X_train, Y_train, X_test, ['SVM'])
-    train_data_model(X_train, Y_train, X_test, ['LogisticAT'])
+    # train_data_model(X_train, Y_train, X_test, ['SVM'])
+    # train_data_model(X_train, Y_train, X_test, ['LogisticAT'])
 

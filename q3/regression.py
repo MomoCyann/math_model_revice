@@ -167,7 +167,7 @@ def train_data_model(X, Y, X_test, models):
         # final_proba.to_csv(f'result_proba_{models[0]}.csv', encoding='utf-8_sig')
         df.groupby('模型').mean().to_csv(f'result_mean_{models[0]}_smote.csv', encoding='utf-8_sig')
     else:
-        df.groupby('模型').mean().to_csv('result_mean.csv', encoding='utf-8_sig')
+        df.groupby('模型').mean().to_csv('result_mean_nosmo.csv', encoding='utf-8_sig')
     print(1)
 
 if __name__ == '__main__':

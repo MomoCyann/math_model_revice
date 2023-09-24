@@ -2,6 +2,7 @@ import time
 import pandas as pd
 import sklearn.metrics
 from sklearn import preprocessing
+from sklearn.decomposition import PCA
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.ensemble import RandomForestClassifier
 from sklearn import svm
@@ -112,12 +113,12 @@ def train_data(X, Y, X_test):
     # rusboost = RUSBoostClassifier(base_estimator=tree, n_estimators=50, learning_rate=1.0)
     # adaboost = AdaBoostClassifier(base_estimator=tree, n_estimators=50, learning_rate=1.0)
 
-    models=[KNeighborsClassifier(),MLPClassifier(),SVC(),RandomForestClassifier(n_estimators=300),XGBClassifier(n_estimators=300)]
+    models=[KNeighborsClassifier(),MLPClassifier(),SVC(probability=True),RandomForestClassifier(n_estimators=100, max_depth=3),XGBClassifier(n_estimators=100, max_depth=3)]
     models_name = ['KNN', 'MLP', 'SVM', 'RF', 'XGBoost',]  # 模型名字，方便画图
-    models=[RandomForestClassifier(n_estimators=300)]
-    models_name = ['RF']
-    models = [SVC(probability=True)]
-    models_name = ['SVM']
+    models=[XGBClassifier(n_estimators=100, max_depth=3)]
+    models_name = ['XGBoost']
+    # models = [SVC(probability=True)]
+    # models_name = ['SVM']
     # # 测试模型
     # models = [XGBRegressor(n_estimators=600, max_depth=3, gamma=0.2, min_child_weight=4,
     #                        subsample=0.7, colsample_bytree=0.8,
@@ -129,12 +130,15 @@ def train_data(X, Y, X_test):
     # models_name = ['XGBoost', 'XGBoost_o', 'RF', 'RF_o']
 
     # 交叉检验
-    skf = RepeatedStratifiedKFold(n_repeats=5, n_splits=5, random_state=17)
+    skf = RepeatedStratifiedKFold(n_repeats=5, n_splits=10, random_state=17)
 
     for train_index, test_index in skf.split(X, Y):
         # 获取训练集与测试集
         x_train, x_test = X.loc[train_index], X.loc[test_index]
         y_train, y_test = Y[train_index], Y[test_index]
+
+        smo = SMOTE(random_state=42)
+        x_train, y_train = smo.fit_resample(x_train, y_train)
 
         print(x_train.shape, x_test.shape)
         print(y_train.shape, y_test.shape)
@@ -199,14 +203,14 @@ def train_data(X, Y, X_test):
 
     print(1)
 
-    # df.groupby('模型').mean().to_csv('result_mean.csv', encoding='utf-8_sig')
+    # df.groupby('模型').mean().to_csv('result_mean_smo.csv', encoding='utf-8_sig')
     #
     final_proba = pd.DataFrame(final_proba, columns=['0', '1'])
-    # final_proba.to_csv('result_proba.csv', encoding='utf-8_sig')
-    # df.groupby('模型').mean().to_csv('result_mean_rf_smote.csv', encoding='utf-8_sig')
-
-    final_proba.to_csv('result_proba_svm.csv', encoding='utf-8_sig')
-    df.groupby('模型').mean().to_csv('result_mean_svm_smote.csv', encoding='utf-8_sig')
+    final_proba.to_csv('result_proba.csv', encoding='utf-8_sig')
+    df.groupby('模型').mean().to_csv('result_mean_xgb_smote.csv', encoding='utf-8_sig')
+    #
+    # final_proba.to_csv('result_proba_svm.csv', encoding='utf-8_sig')
+    # df.groupby('模型').mean().to_csv('result_mean_svm_smote.csv', encoding='utf-8_sig')
 
 
 
@@ -220,15 +224,17 @@ if __name__ == '__main__':
     X = data.iloc[:, 1:-1]
     Y = data.iloc[:, -1]
 
+    scaler = StandardScaler()
+    X = pd.DataFrame(scaler.fit_transform(X))
 
+    # 创建PCA模型并指定要降到的维度
+    pca = PCA(n_components=0.95)
+    X_pca = pca.fit_transform(X)
 
     X_train = X.iloc[:100, :]
     X_test = X.iloc[100:, :]
     Y_train = Y.iloc[:100]
     Y_test = Y.iloc[100:]
-
-    smo = SMOTE(random_state=42)
-    X_train, Y_train = smo.fit_resample(X_train, Y_train)
 
 
     scaler = StandardScaler()

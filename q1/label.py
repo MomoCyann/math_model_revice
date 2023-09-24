@@ -68,7 +68,7 @@ for col in hm_columns_reversed:
             time_difference = datetime.strptime(time, '%Y/%m/%d %H:%M') - datetime.strptime(dead_time, '%Y/%m/%d %H:%M')
             # 比较时间差值是否大于48小时
             if time_difference <= timedelta(hours=48)-timedelta(hours=ill_time):
-                selected_df.loc[index, 'hm_big_time'] = str((time_difference + timedelta(hours=ill_time)).total_seconds() / 3600)+'小时'
+                selected_df.loc[index, 'hm_big_time'] = str((time_difference + timedelta(hours=ill_time)).total_seconds() / 3600)
                 selected_df.loc[index, 'hm_big'] = 1
 
 

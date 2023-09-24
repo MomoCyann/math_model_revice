@@ -57,7 +57,7 @@ def check(features):
     plt.xticks(rotation=45)
     plt.show()
     # 设置相关系数的阈值，这里假设大于0.7的相关系数是较大的
-    threshold = 0.8
+    threshold = 0.6
     # 创建一个集合(set)用于存储要删除的列名
     variables_to_delete = []
 
@@ -73,7 +73,7 @@ def check(features):
     # 打印结果
     print("删除相关性较大的列后的DataFrame:")
     print(features_.shape)
-    features_.to_csv('multiclass_label_66feat.csv', encoding='utf-8_sig')
+    features_.to_csv('multiclass_label_feat.csv', encoding='utf-8_sig')
 
 def feature_selection(data, y):
     # 特征选择
