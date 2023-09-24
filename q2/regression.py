@@ -25,16 +25,24 @@ def get_train_data():
     X = df.loc[:,df.columns.str.contains('时间点')]
     Y = df.loc[:,df.columns.str.contains('volume')]
 
-    X.fillna(0, inplace=True)
-    Y.fillna(0, inplace=True)
+    # X.fillna(0, inplace=True)
+    # Y.fillna(0, inplace=True)
 
     print(X)
     print(Y)
 
-    for index in X.index[:5]:
-        plt.scatter(X.loc[index,:],Y.loc[index,:])
-        plt.plot(X.loc[index,:],Y.loc[index,:])
+    plt.figure(figsize=(6,3))
+    plt.xlabel("时间(h)")
+    plt.ylabel("水肿体积(10-3ml)")
+    plt.rc('font', family='Times New Roman')
+    plt.subplots_adjust(bottom=0.15)
+
+    for index in X.index[:25]:
+        # plt.scatter(X.loc[index,:],Y.loc[index,:])
+        plt.plot(X.loc[index,:],Y.loc[index,:],alpha=0.8)
+    plt.savefig("fig/trend.jpg",dpi=600)
     plt.show()
+
     return X,Y
 
 def regression(X,Y):
@@ -123,17 +131,14 @@ def get_all_volume(df):
             df_f.loc[index,"volume"] = Y.loc[i,c2]
             index+=1
 
-
     df_f.sort_values('time',inplace=True)
     df_f.reset_index(drop=True,inplace=True)
 
     return df_f
 
-def gauss_function(maxX,a1,b1,c1,a2=0,b2=0,c2=0):
-    x = np.arange(0, maxX, 10)
+def gauss_function(x,a1,b1,c1,a2=0,b2=0,c2=0):
     y = a1 * np.exp(-((x-b1)/c1)**2) + a2 * np.exp(-((x-b2)/c2)**2)
-    plt.plot(x,y)
-    return x,y
+    return y
 
 def plot_box(df):
     # 设置箱子的数量和边界
@@ -172,11 +177,15 @@ def plot_box(df):
     plt.show()
 
     avg_volume = df.groupby('分箱')['volume'].median()
-    avg_times = df.groupby('分箱')['time'].mean()
+    avg_times = df.groupby('分箱')['time'].median()
 
     print("分箱时间及对应的大小输出")
-    print(",".join(map(str,round(avg_times,4))))
-    print(",".join(map(str,round(avg_volume,4))))
+    x = "x=[" + ",".join(map(str,round(avg_times,4)))+"];"
+    y = "y=[" + ",".join(map(str,round(avg_volume,4))) + "];"
+    print(x)
+    print(y)
+    print("cftool;")
+
     print('\n\n')
 
 
@@ -223,14 +232,87 @@ def plot_cluster5_box():
 
 
 
-# df = pd.read_csv("data/allVolume.csv", index_col=False)
-# df = df.loc[:, ~df.columns.str.contains('Unnamed')]
-#
+def count_err_total():
+    df = pd.read_csv('data/ed_volume_time.csv')
+    df = df.loc[:99,:]
+
+    df_time = df.loc[:,df.columns.str.contains('时间点')]
+    df_volume = df.loc[:,df.columns.str.contains('volume')]
+
+    df_err = pd.DataFrame(columns=['error'])
+
+    total_res = 0
+    for i in df_time.index:
+        x = df_time.loc[i,:].values
+        # time_mean + vol_media
+        pre_y = gauss_function(x,35780,451.6,202.9,2890,98.11,109.7)
+        # pre_y = gauss_function(x,35780,451.6,202.9,2890,98.11,109.7)
+
+        y = df_volume.loc[i,:].values
+
+        res = 0
+        count=0
+        for j in range(y.shape[0]):
+            if pd.isnull(y[j]):
+                break
+
+            res += abs(y[j]-pre_y[j])
+            count+=1
+            print(y[j],pre_y[j])
+        df_err.loc[i,'error']= res/count
+        print(res)
+        total_res+=res
+    df_err.to_csv('data/error_total.csv',encoding='utf-8_sig')
+    print(total_res)
+
+def count_err_cluster(c):
+    df = pd.read_csv('data/ed_km.csv')
+    df = df.loc[:99,:]
+
+    a1=[-193800000,39120,11000,39260,20090]
+    b1=[361.1,709,240.2,135.9,120.4]
+    c1=[204.8,216.3,430.7,156.8,136.2]
+    a2=[193900000,35930,0,33500,0]
+    b2=[361.1,316.6,0,579.2,0]
+    c2=[204.8,494.2,0,128.5,0]
+
+    for cluster in range(c):
+        df_c = df.loc[df[f"label_{c}"]==cluster,:]
+
+        df_time = df_c.loc[:,df_c.columns.str.contains('时间点')]
+        df_volume = df_c.loc[:,df_c.columns.str.contains('volume')]
+
+        total_res = 0
+        for i in df_time.index:
+            x = df_time.loc[i,:].values
+            # time_mean + vol_media
+            pre_y = gauss_function(x,a1[cluster],b1[cluster],c1[cluster],a2[cluster],b2[cluster],c2[cluster])
+            # pre_y = gauss_function(x,35780,451.6,202.9,2890,98.11,109.7)
+
+            y = df_volume.loc[i,:].values
+
+            res = 0
+            count = 0
+            for j in range(y.shape[0]):
+                if pd.isnull(y[j]):
+                    break
+                res += abs(y[j]-pre_y[j])
+                count+=1
+                print(y[j],pre_y[j])
+
+            print(res)
+            df.loc[i,'error_cluster']=res/count
+            total_res+=res
+        print(total_res)
+    print(df.info())
+    df.to_csv(f"data/error_cluster{c}.csv",encoding='utf-8_sig')
+
+
+# df = pd.read_csv("data/allVolume_no81.csv")
 # plot_box(df)
 
-# df = pd.read_csv('data/ed_volume_time.csv')
-# df = df.loc[:98,:]
-# volume= get_all_volume(df)
-# volume.to_csv('data/allVolume_no81.csv',encoding='utf-8_sig')
-
-# km()
+for f in glob.glob("data/cluster/*.csv"):
+    print(f)
+    df = pd.read_csv(f)
+    plt.scatter(df['time'],df['volume'])
+    plt.show()
