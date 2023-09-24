@@ -77,7 +77,10 @@ def multi_fit(x,y):
 
 def km():
     df_person = pd.read_csv("D:\Program Files (x86)\PyProject\math_model_revice\data\表1-患者列表及临床信息.csv")
+    # 删除sub81异常数据
+    df_person.drop(index=80, inplace=True,axis=0)
     df_person = df_person.loc[:160,~df_person.columns.str.contains('Unnamed')]
+
     data = df_person.iloc[:,3:]
     print(df_person.tail())
     print(df_person.info())
@@ -90,8 +93,8 @@ def km():
 
     for cluster in range(3,6):
 
-        # model = KMeans(n_clusters=cluster)
-        model = kmodes.KModes(n_clusters=cluster)
+        model = KMeans(n_clusters=cluster)
+        # model = kmodes.KModes(n_clusters=cluster)
         predict = model.fit_predict(data)
 
         label = "label_"+str(cluster)
@@ -102,13 +105,12 @@ def km():
         print(df_person.groupby(label).mean()['90天mRS'])
         print(df_person.groupby(label).count()['90天mRS'])
 
-    df.to_csv("data/ed_kmodes.csv",encoding='utf-8_sig')
+    df.to_csv("data/ed_km_no81.csv",encoding='utf-8_sig')
 
 
 def get_all_volume(df):
     X = df.loc[:, df.columns.str.contains('时间点')]
     Y = df.loc[:, df.columns.str.contains('volume')]
-
 
     df_f = pd.DataFrame(columns=['time','volume'])
 
@@ -125,9 +127,13 @@ def get_all_volume(df):
     df_f.sort_values('time',inplace=True)
     df_f.reset_index(drop=True,inplace=True)
 
-    print(df_f)
     return df_f
 
+def gauss_function(maxX,a1,b1,c1,a2=0,b2=0,c2=0):
+    x = np.arange(0, maxX, 10)
+    y = a1 * np.exp(-((x-b1)/c1)**2) + a2 * np.exp(-((x-b2)/c2)**2)
+    plt.plot(x,y)
+    return x,y
 
 def plot_box(df):
     # 设置箱子的数量和边界
@@ -137,7 +143,6 @@ def plot_box(df):
     # bin_edges = pd.cut(df['time'], bins=num_bins, labels=False)
     bin_edges = np.asarray([0,24,48,100,200,400,600,800,1000,2000,4000,10000])
 
-
     # 样本等频
     # bin_edges = pd.qcut(df['time'], q=num_bins, labels=False)
 
@@ -146,13 +151,14 @@ def plot_box(df):
     box_counts = df['分箱'].value_counts()
 
     # 使用Seaborn绘制箱线图
-    plt.figure(figsize=(10, 6))
+    plt.figure(figsize=(10,5))
     sns.boxplot(x='分箱', y='volume', data=df[df['分箱'].isin(box_counts.index)], palette='Set2')
 
+    plt.xlabel("时间(h)")
+    plt.ylabel("水肿大小(10-3ml)")
+    plt.rc('font', family='Times New Roman')
+
     # 添加标签和标题
-    plt.xlabel('分箱')
-    plt.ylabel('大小')
-    plt.title('分箱箱线图')
     bin_centers = bin_edges
     # bin_centers =df.groupby('分箱')['time'].min()
     # bin_centers =np.asarray([0,24,48,100,200,400,600,800,1000,2000,4000])
@@ -162,6 +168,7 @@ def plot_box(df):
     # plt.xticks(range(bin_centers.shape[0]), bin_centers.astype(int))
 
     # 显示图形
+    plt.savefig('fig/all_box.tif', dpi=600)
     plt.show()
 
     avg_volume = df.groupby('分箱')['volume'].median()
@@ -173,28 +180,57 @@ def plot_box(df):
     print('\n\n')
 
 
+# 分聚类画图并输出箱信息
+def plot_cluster5_box():
+    df = pd.read_csv("data/ed_km_no81.csv")
+    df = df.loc[:, ~df.columns.str.contains('Unnamed')]
+
+    cluster = 5
+    label = "label_"+str(cluster)
+    fig, axes = plt.subplots(3, 2, figsize=(15, 10))
+    for i in range(cluster):
+
+        df_tmp = df[df[label]==i]
+        df_label = get_all_volume(df_tmp)
+
+        bin_edges = np.asarray([0, 24, 48, 100, 200, 400, 600, 800, 1000, 2000, 4000, 10000])
+
+        # 将分箱结果添加到DataFrame
+        df_label['分箱'] = pd.cut(df_label['time'], bins=bin_edges, labels=False)
+        box_counts = df_label['分箱'].value_counts()
+
+        # 使用Seaborn绘制箱线图
+        sns.boxplot(x='分箱', y='volume', data=df_label[df_label['分箱'].isin(box_counts.index)], palette='Set2',ax=axes[int(i/2),i%2])
+        axes[int(i/2),i%2].set_ylabel('水肿大小(10-3ml)')
+
+        # 添加标签和标题
+        bin_centers = bin_edges
+
+        custom_labels = [f'{bin_edges[i]}-{bin_edges[i + 1]}' for i in range(len(bin_edges) - 1)]
+
+        axes[int(i/2),i%2].set_xticks(range(len(custom_labels)), custom_labels,rotation=15)
+
+    axes[0,0].set_xlabel("")
+    axes[0,1].set_xlabel("")
+    axes[1,0].set_xlabel("")
+    axes[1,1].set_xlabel("")
+    axes[2,0].set_xlabel('时间(h)')
+    fig.delaxes(axes[2, 1])
+    # 显示图形
+    # plt.tight_layout()
+    plt.savefig('fig/cluster5_box.jpg', dpi=600)
+    plt.show()
+
+
+
 # df = pd.read_csv("data/allVolume.csv", index_col=False)
 # df = df.loc[:, ~df.columns.str.contains('Unnamed')]
 #
-# print(df.shape)
-#
 # plot_box(df)
 
+# df = pd.read_csv('data/ed_volume_time.csv')
+# df = df.loc[:98,:]
+# volume= get_all_volume(df)
+# volume.to_csv('data/allVolume_no81.csv',encoding='utf-8_sig')
 
-df = pd.read_csv("data/ed_km.csv")
-df = df.loc[:, ~df.columns.str.contains('Unnamed')]
-
-# df_all = pd.read_csv("data/allVolume.csv")
-# plot_box(df_all)
-
-cluster = 5
-label = "label_"+str(cluster)
-for i in range(cluster):
-
-    df_tmp = df[df[label]==i]
-
-    df_label = get_all_volume(df_tmp)
-
-    print(df_label.info())
-
-    plot_box(df_label)
+# km()
