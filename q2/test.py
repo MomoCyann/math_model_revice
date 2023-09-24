@@ -1,5 +1,4 @@
-col='随访1时间'
+from datetime import datetime,timedelta
 
-list = [1,3,4]
-
-print(",".join(map(str,list)))
+time = datetime.strptime('2018/7/18  17:53', '%Y/%m/%d %H:%M') - datetime.strptime('2018/1/20 9:18', '%Y/%m/%d %H:%M')
+print(time.total_seconds()/3600+3)
