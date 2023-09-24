@@ -1,13 +1,17 @@
 import time
+from collections import Counter, OrderedDict
+
 import pandas as pd
 import sklearn.metrics
 from sklearn import preprocessing
+from sklearn.decomposition import PCA
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.ensemble import RandomForestClassifier
 from sklearn import svm
+from sklearn.manifold import TSNE
 from xgboost import XGBRegressor
 from xgboost import XGBClassifier
-from imblearn.over_sampling import SMOTE, KMeansSMOTE
+from imblearn.over_sampling import SMOTE, KMeansSMOTE, SMOTENC, BorderlineSMOTE
 from sklearn.preprocessing import StandardScaler, MinMaxScaler, label_binarize
 import numpy as np
 from sklearn.model_selection import train_test_split
@@ -30,6 +34,9 @@ from sklearn.metrics import accuracy_score, f1_score, roc_auc_score
 from sklearn.ensemble import AdaBoostClassifier
 # from imblearn.ensemble import RUSBoostClassifier
 from sklearn.tree import DecisionTreeClassifier
+from mord import LogisticAT
+from regression import every_class_acc
+
 
 def get_eval_indicator(y_test, y_pre):
     '''
@@ -63,34 +70,6 @@ def get_eval_indicator_clf(y_test, y_pre):
         auc=0
         pass
     return acc, f1, auc
-
-def plot_box_indicator(df):
-    '''
-    :param df: 各模型评价指标
-    :return:   4个评价指标的箱线图
-    '''
-    plt.rcParams['font.sans-serif'] = ['SimHei']  # 用来正常显示中文标签
-    plt.rcParams['axes.unicode_minus'] = False  # 用来正常显示负号
-    sns.set_theme(style="whitegrid")
-
-    df = df.loc[:, ~df.columns.str.contains('Unnamed')]
-    # 对所有指标进行遍历画图
-    for column in df.columns[:1]:
-        ax = sns.boxplot(x="LSTM模型参数", y=column, data=df, hue='LSTM模型参数', dodge=False,
-                    showmeans=True,
-                    meanprops={"marker": "d",
-                               "markerfacecolor": "white",
-                               "markeredgecolor": "black",},
-                    palette=sns.diverging_palette(240, 10, sep=12))
-        model_labels = ['KNN', '多层感知机', '随机森林回归', '支持向量机回归', 'XGBoost']
-
-        n = 0
-        for i in model_labels:
-            ax.legend_.texts[n].set_text(i)
-            n += 1
-
-        plt.show()
-
 
 def train_data(X, Y, X_test):
     print(X.shape)
@@ -198,6 +177,16 @@ def train_data(X, Y, X_test):
             model_index += 1
             df_index += 1
 
+            accuracy_by_class = every_class_acc(y_test, y_pre)
+            class_accuracies.append(accuracy_by_class)
+            # 使用Counter计算每个类别的数量
+            class_counts = Counter(y_pre)
+            # 按照类别从小到大排列
+            sorted_class_counts = OrderedDict(sorted(class_counts.items()))
+            # 打印每个类别的数量
+            for class_label, count in sorted_class_counts.items():
+                print(f"类别 {class_label} 的预测数量: {count}")
+
             # y_train_proba.append(model.predict_proba(X))
             #
             y_final_proba.append(model.predict_proba(X_test))
@@ -205,6 +194,15 @@ def train_data(X, Y, X_test):
 
     final_proba = np.mean(np.array(y_final_proba), axis=0)
 
+    # 计算总体准确率的平均值
+    total_accuracies = []
+    for class_label in np.unique(Y):
+        class_total_accuracy = np.mean([accuracy[class_label] for accuracy in class_accuracies])
+        total_accuracies.append(class_total_accuracy)
+
+    # 打印每个类别的平均准确率
+    for class_label, avg_accuracy in enumerate(total_accuracies):
+        print(f"类别 {class_label} 的平均准确率: {avg_accuracy:.2f}")
     print(1)
 
     # df.groupby('模型').mean().to_csv('result_mean.csv', encoding='utf-8_sig')
@@ -219,7 +217,7 @@ def train_data(X, Y, X_test):
 def train_data_model(X, Y, X_test, models: List):
     print(X.shape)
     print(Y.shape)
-
+    Y = Y.to_numpy(dtype=int)
     # 创建df，存放n个模型的4项指标
     # df = pd.DataFrame(columns=['MAE', 'MSE', 'RMSE', 'R2'])
     df = pd.DataFrame()
@@ -227,6 +225,7 @@ def train_data_model(X, Y, X_test, models: List):
 
     y_train_proba = []
     y_final_proba = []
+    class_accuracies = []
 
     # 模型库，每次分出训练集与测试集，均在该模型库中遍历训练
     # models = [KNeighborsRegressor(weights='distance', n_neighbors=7, algorithm='kd_tree'),
@@ -244,8 +243,11 @@ def train_data_model(X, Y, X_test, models: List):
     # rusboost = RUSBoostClassifier(base_estimator=tree, n_estimators=50, learning_rate=1.0)
     # adaboost = AdaBoostClassifier(base_estimator=tree, n_estimators=50, learning_rate=1.0)
 
-    all_models=[KNeighborsClassifier(),MLPClassifier(),SVC(probability=True, decision_function_shape='ovo'),RandomForestClassifier(n_estimators=300),XGBClassifier(n_estimators=300)]
-    all_models_name = ['KNN', 'MLP', 'SVM', 'RF', 'XGBoost',]  # 模型名字，方便画图
+    all_models=[KNeighborsClassifier(),MLPClassifier(),SVC(probability=True, decision_function_shape='ovo'),
+                RandomForestClassifier(n_estimators=300, max_depth=5),
+                XGBClassifier(n_estimators=100, max_depth=3,),
+                LogisticAT()]
+    all_models_name = ['KNN', 'MLP', 'SVM', 'RF', 'XGBoost','LogisticAT']  # 模型名字，方便画图
 
 
     # # 测试模型
@@ -259,12 +261,33 @@ def train_data_model(X, Y, X_test, models: List):
     # models_name = ['XGBoost', 'XGBoost_o', 'RF', 'RF_o']
 
     # 交叉检验
-    skf = RepeatedStratifiedKFold(n_repeats=5, n_splits=5, random_state=17)
+    skf = RepeatedStratifiedKFold(n_repeats=5, n_splits=4, random_state=17)
 
     for train_index, test_index in skf.split(X, Y):
         # 获取训练集与测试集
         x_train, x_test = X.loc[train_index], X.loc[test_index]
         y_train, y_test = Y[train_index], Y[test_index]
+
+        num = 20
+        smo = BorderlineSMOTE(random_state=42, kind="borderline-1", k_neighbors=2,
+                              sampling_strategy={0: num,
+                                                 1: num,
+                                                 2: num,
+                                                 3: num,
+                                                 4: num,
+                                                 5: num,
+                                                 6: num},
+                              )
+        # smo = SMOTENC(random_state=42, k_neighbors=2,
+        #               sampling_strategy={0: num,
+        #                                  1: num,
+        #                                  2: num,
+        #                                  3: num,
+        #                                  4: num,
+        #                                  5: num,
+        #                                  6: num},
+        #               categorical_features=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 14, 15, 16, 17, 18, 19, 20])
+        # x_train, y_train = smo.fit_resample(x_train, y_train)
 
         print(x_train.shape, x_test.shape)
         print(y_train.shape, y_test.shape)
@@ -279,7 +302,12 @@ def train_data_model(X, Y, X_test, models: List):
             if model_name == 'XGBoost':
                 eval_set = [(x_train, y_train), (x_test, y_test)]
                 model.fit(x_train, y_train, eval_set=eval_set, eval_metric='auc',verbose=True,early_stopping_rounds=5)
-
+            # elif model_name == 'RF':
+            #     model.fit(x_train, y_train)
+            #     importances = model.feature_importances_
+            #     indices = np.argsort(importances)[::-1]
+            #     for f in range(x_train.shape[1]):
+            #         print("%2d) %-*s %f" % (f + 1, 30, X[indices[f]], importances[indices[f]]))
             else:
                 model.fit(x_train, y_train)
 
@@ -294,7 +322,7 @@ def train_data_model(X, Y, X_test, models: List):
             df.loc[df_index, 'auc_T'] = auc
             print(f"train acc: {acc}")
             print(f"train f1: {f1}")
-            print(f"train auc: {auc}")
+            # print(f"train auc: {auc}")
 
             # 获取测试集的评价指标
             y_pre = model.predict(x_test)
@@ -305,14 +333,33 @@ def train_data_model(X, Y, X_test, models: List):
             df.loc[df_index, 'auc'] = auc
             print(f"test acc: {acc}")
             print(f"test f1: {f1}")
-            print(f"test auc: {auc}")
+            # print(f"test auc: {auc}")
             model_index += 1
             df_index += 1
+
+            accuracy_by_class = every_class_acc(y_test, y_pre)
+            class_accuracies.append(accuracy_by_class)
+            # 使用Counter计算每个类别的数量
+            class_counts = Counter(y_pre)
+            # 按照类别从小到大排列
+            sorted_class_counts = OrderedDict(sorted(class_counts.items()))
+            # 打印每个类别的数量
+            for class_label, count in sorted_class_counts.items():
+                print(f"类别 {class_label} 的预测数量: {count}")
 
             # y_train_proba.append(model.predict_proba(X))
             if len(models) == 1:
                 y_final_proba.append(model.predict_proba(X_test))
 
+    # 计算总体准确率的平均值
+    total_accuracies = []
+    for class_label in np.unique(Y):
+        class_total_accuracy = np.mean([accuracy[class_label] for accuracy in class_accuracies])
+        total_accuracies.append(class_total_accuracy)
+
+    # 打印每个类别的平均准确率
+    for class_label, avg_accuracy in enumerate(total_accuracies):
+        print(f"类别 {class_label} 的平均准确率: {avg_accuracy:.2f}")
     if len(models) == 1:
         final_proba = np.mean(np.array(y_final_proba), axis=0)
         final_proba = pd.DataFrame(final_proba, columns=['0', '1', '2', '3', '4', '5', '6'])
@@ -328,36 +375,29 @@ if __name__ == '__main__':
     # X = pd.read_excel('dataset/Molecular_Descriptor.xlsx', index_col=[0], sheet_name='training')
     # X_test = pd.read_excel('dataset/Molecular_Descriptor.xlsx', index_col=[0], sheet_name='test')
 
-    data = pd.read_csv('multiclass_label.csv')
+    data = pd.read_csv('multiclass_label.csv', index_col=False)
     data = data.drop(['流水号'], axis=1)
     X = data.iloc[:, 1:-1]
     Y = data.iloc[:, -1]
 
+    # data = pd.read_csv('multiclass_label_66feat.csv', index_col=False)
+    # X = data
 
+    scaler = StandardScaler()
+    X = pd.DataFrame(scaler.fit_transform(X))
+
+    # 创建PCA模型并指定要降到的维度
+    pca = PCA(n_components=0.95)
+    X_pca = pca.fit_transform(X)
 
     X_train = X.iloc[:100, :]
     X_test = X.iloc[100:, :]
     Y_train = Y.iloc[:100]
     Y_test = Y.iloc[100:]
 
-    smo = SMOTE(random_state=42, k_neighbors=3)
-    X_train, Y_train = smo.fit_resample(X_train, Y_train)
-
-
-    scaler = StandardScaler()
-    X_train = pd.DataFrame(scaler.fit_transform(X_train))
-    X_test = pd.DataFrame(scaler.transform(X))
-
-
-
-    # 因变量归一化(如有必要)
-    # scaler = preprocessing.MinMaxScaler()
-    # Y = pd.DataFrame(columns=Y.columns, data=scaler.fit_transform(Y))
-
-    # 训练并画图
-    # train_data(X, Y, X_test)
-    train_data_model(X_train, Y_train, X_test, ['RF'])
-    train_data_model(X_train, Y_train, X_test, ['XGBoost'])
-    # train_data_model(X_train, Y_train, X_test, ['SVM'])
-
+    # train_data_model(X_train, Y_train, X_test, ['RF'])
+    # train_data_model(X_train, Y_train, X_test, ['MLP'])
+    # train_data_model(X_train, Y_train, X_test, ['XGBoost'])
+    train_data_model(X_train, Y_train, X_test, ['SVM'])
+    train_data_model(X_train, Y_train, X_test, ['LogisticAT'])
 
