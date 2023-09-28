@@ -42,12 +42,12 @@ padded_sequences = np.array(padded_sequences)
 
 # 训练集前100
 train = padded_sequences[:100, :]
-test = padded_sequences[100:, :]
+test = padded_sequences
 # 获取目标值
 targets = df_label['mrs'].values[:100]
 
 
-def fit_a_model(X, Y, model_name, X_test):
+def fit_a_model(X, Y, model_name, test):
 
     skf = RepeatedStratifiedKFold(n_repeats=5, n_splits=4, random_state=17)
 
@@ -86,6 +86,11 @@ def fit_a_model(X, Y, model_name, X_test):
         model.fit(x_train, y_train, epochs=50, batch_size=16, verbose=1,
                   validation_data=(x_test, y_test), shuffle=True,
                   callbacks=[early_stop])
+        predictions = model.predict(test)
+        # 创建一个DataFrame来存储预测概率
+        predictions_df = pd.DataFrame(predictions)
+        # 保存预测概率到CSV文件
+        predictions_df.to_csv('predict_2.csv', index=False, encoding='utf-8_sig')
         # evaluate the model
         scores = model.evaluate(x_test, y_test, verbose=0)
 
@@ -176,13 +181,13 @@ def draw_all(train_loss_lstm, val_loss_lstm,
 
 if __name__ == '__main__':
     # fit_a_model(train, targets, 'LSTM')
-    # fit_a_model(train, targets, 'BiLSTM')
+    fit_a_model(train, targets, 'BiLSTM', test)
     # fit_a_model(train, targets, 'RNN')
 
-    train_loss_lstm, val_loss_lstm = draw_loss(train, targets, 'LSTM')
-    train_loss_bilstm, val_loss_bilstm = draw_loss(train, targets, 'BiLSTM')
-    train_loss_rnn, val_loss_rnn = draw_loss(train, targets, 'RNN')
+    # train_loss_lstm, val_loss_lstm = draw_loss(train, targets, 'LSTM')
+    # train_loss_bilstm, val_loss_bilstm = draw_loss(train, targets, 'BiLSTM')
+    # train_loss_rnn, val_loss_rnn = draw_loss(train, targets, 'RNN')
 
-    draw_all(train_loss_lstm, val_loss_lstm,
-             train_loss_bilstm, val_loss_bilstm,
-             train_loss_rnn, val_loss_rnn)
+    # draw_all(train_loss_lstm, val_loss_lstm,
+    #          train_loss_bilstm, val_loss_bilstm,
+    #          train_loss_rnn, val_loss_rnn)

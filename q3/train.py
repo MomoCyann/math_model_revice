@@ -380,14 +380,14 @@ if __name__ == '__main__':
     X_pca = pca.fit_transform(X)
 
     X_train = X.iloc[:100, :]
-    X_test = X.iloc[100:, :]
+    X_test = X
     Y_train = Y.iloc[:100]
     Y_test = Y.iloc[100:]
 
-    train_data_model(X_train, Y_train, X_test, ['RF', 'MLP', 'XGBoost', 'SVM', 'LogisticAT'])
+    # train_data_model(X_train, Y_train, X_test, ['RF', 'MLP', 'XGBoost', 'SVM', 'LogisticAT'])
     # train_data_model(X_train, Y_train, X_test, ['RF'])
     # train_data_model(X_train, Y_train, X_test, ['MLP'])
     # train_data_model(X_train, Y_train, X_test, ['XGBoost'])
     # train_data_model(X_train, Y_train, X_test, ['SVM'])
-    # train_data_model(X_train, Y_train, X_test, ['LogisticAT'])
+    train_data_model(X_train, Y_train, X_test, ['LogisticAT'])
 
